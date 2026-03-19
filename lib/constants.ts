@@ -1,4 +1,18 @@
-export const PUTER_WORKER_URL = import.meta.env.VITE_PUTER_WORKER_URL || "";
+const PUTER_WORKER_URL_RAW = import.meta.env.VITE_PUTER_WORKER_URL;
+
+if (!PUTER_WORKER_URL_RAW) {
+    throw new Error(
+        "VITE_PUTER_WORKER_URL is not defined in the environment variables. " +
+        "Please provide a valid URL for PUTER_WORKER_URL in your .env file."
+    );
+}
+
+export const PUTER_WORKER_URL = PUTER_WORKER_URL_RAW;
+
+// File Upload Constraints
+export const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50MB
+export const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+export const ACCEPTED_INPUT_FORMATS = ".jpg,.jpeg,.png,.webp";
 
 // Storage Paths
 export const STORAGE_PATHS = {

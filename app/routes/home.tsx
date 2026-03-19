@@ -16,12 +16,10 @@ export function meta({}: Route.MetaArgs) {
 export default function Home() {
     const navigate = useNavigate()
 
-    const handleUploadComplete = async (base64Data: string) => {
-        const newId = Date.now().toString();
+    const handleUploadComplete = (base64Data: string) => {
+        const newId = crypto.randomUUID();
 
-        navigate(`/visualizer/${newId}`);
-
-        return true;
+        navigate(`/visualizer/${newId}`, { state: { image: base64Data } });
     }
 
   return (
@@ -62,7 +60,7 @@ export default function Home() {
                           </div>
 
                           <h3>Upload your floor plan</h3>
-                          <p>Supports JPG, PNG, formats up to 10MB</p>
+                          <p>Supports JPG, PNG, and WebP formats up to 50MB</p>
                       </div>
 
                       <Upload onComplete={handleUploadComplete}/>
