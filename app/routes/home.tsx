@@ -1,9 +1,10 @@
 import type { Route } from "./+types/home";
 import Navbar from "../../components/Navbar";
-import { Welcome } from "../welcome/welcome";
 import {ArrowRight, ArrowUpRight, Clock} from "lucide-react";
 import Button from "../../components/ui/Button";
 import {Layers} from "lucide-react";
+import Upload from "../../components/Upload";
+import {useNavigate} from "react-router";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -13,6 +14,14 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export default function Home() {
+    const navigate = useNavigate()
+
+    const handleUploadComplete = (base64Data: string) => {
+        const newId = crypto.randomUUID();
+
+        navigate(`/visualizer/${newId}`, { state: { image: base64Data } });
+    }
+
   return (
       <div className="home">
         <Navbar />
@@ -51,10 +60,10 @@ export default function Home() {
                           </div>
 
                           <h3>Upload your floor plan</h3>
-                          <p>Supports JPG, PNG, formats up to 10MB</p>
+                          <p>Supports JPG, PNG, and WebP formats up to 50MB</p>
                       </div>
 
-                      <p>Upload images</p>
+                      <Upload onComplete={handleUploadComplete}/>
                   </div>
               </div>
           </section>
