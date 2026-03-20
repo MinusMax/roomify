@@ -18,8 +18,16 @@ export const getCurrentUser = async () => {
     }
 }
 
-export const createProject = async ({ item} : CreateProjectParams) :
+export const createProject = async ({ item, visibility = "private"} : CreateProjectParams) :
     Promise<DesignItem | null | undefined>  => {
+      // ... existing code ...
+      const payload = {
+          ... rest,
+          isPublic: visibility === "public",
+          sourceImage : resolvedSource,
+          renderedImage : resolvedRender,
+      }
+      // ... rest of function ...
      const projectId = item.id;
 
      const hosting = await getOrCreateHostngConfig();
