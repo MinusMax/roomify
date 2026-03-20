@@ -18,6 +18,7 @@ export const getCurrentUser = async () => {
     }
 }
 
+<<<<<<< HEAD
 export const createProject = async ({ item, visibility = "private"} : CreateProjectParams) :
     Promise<DesignItem | null | undefined>  => {
       // ... existing code ...
@@ -28,6 +29,10 @@ export const createProject = async ({ item, visibility = "private"} : CreateProj
           renderedImage : resolvedRender,
       }
       // ... rest of function ...
+=======
+export const createProject = async ({ item, visibility} : CreateProjectParams) :
+    Promise<DesignItem | null>  => {
+>>>>>>> eb6e672 (fix coderabbit suggested bug)
      const projectId = item.id;
 
      const hosting = await getOrCreateHostngConfig();
@@ -62,18 +67,12 @@ export const createProject = async ({ item, visibility = "private"} : CreateProj
          ... rest
      } = item;
 
-     const payload = {
+     const payload: DesignItem = {
          ... rest,
          sourceImage : resolvedSource,
          renderedImage : resolvedRender,
+         isPublic: visibility === 'public'
      }
 
-     try {
-
-
-         return payload;
-     } catch (e) {
-         console.log('Failed to save project' , e)
-         return null;
-     }
+     return payload;
 }
