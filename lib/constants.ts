@@ -1,13 +1,16 @@
 const PUTER_WORKER_URL_RAW = import.meta.env.VITE_PUTER_WORKER_URL;
-
-if (!PUTER_WORKER_URL_RAW) {
-    throw new Error(
-        "VITE_PUTER_WORKER_URL is not defined in the environment variables. " +
-        "Please provide a valid URL for PUTER_WORKER_URL in your .env file."
-    );
-}
+const IS_PLACEHOLDER_URL = PUTER_WORKER_URL_RAW === "https://your-puter-worker-url.com";
 
 export const PUTER_WORKER_URL = PUTER_WORKER_URL_RAW;
+export const IS_VALID_PUTER_WORKER_URL = PUTER_WORKER_URL_RAW && !IS_PLACEHOLDER_URL;
+
+if (!IS_VALID_PUTER_WORKER_URL) {
+    const message = IS_PLACEHOLDER_URL
+        ? "VITE_PUTER_WORKER_URL is still set to the placeholder value. Roomify will use Puter KV for local project storage."
+        : "VITE_PUTER_WORKER_URL is not defined. Roomify will use Puter KV for local project storage.";
+
+    console.info(message);
+}
 
 // File Upload Constraints
 export const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50MB

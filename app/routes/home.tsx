@@ -5,8 +5,8 @@ import Button from "../../components/ui/Button";
 import {Layers} from "lucide-react";
 import Upload from "../../components/Upload";
 import {useNavigate} from "react-router";
-import {useState} from "react";
-import {createProject} from "../../lib/puter.action";
+import {useEffect, useState} from "react";
+import {createProject, getProjects} from "../../lib/puter.action";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -18,6 +18,14 @@ export function meta({}: Route.MetaArgs) {
 export default function Home() {
     const navigate = useNavigate()
     const [projects, setProjects] = useState<DesignItem[]>([]);
+
+    useEffect(() => {
+        const fetchProjects = async () => {
+            const data = await getProjects();
+            setProjects(data);
+        };
+        fetchProjects();
+    }, []);
 
     const handleUploadComplete = async (base64Data: string) => {
         const newId = crypto.randomUUID();

@@ -1,32 +1,8 @@
 export const HOSTING_CONFIG_KEY = "roomify_hosting_config";
 export const HOSTING_DOMAIN_SUFFIX = ".puter.site";
 
-<<<<<<< HEAD
 export const isHostedUrl = (value: unknown): value is string =>
-    typeof value === "string" &&
-    (() => {
-        try {
-            const u = new URL(value);
-            return (
-                u.protocol === "https:" &&
-                (u.hostname === HOSTING_DOMAIN_SUFFIX.slice(1) ||
-                    u.hostname.endsWith(HOSTING_DOMAIN_SUFFIX))
-            );
-        } catch {
-            return false;
-        }
-    })();
-=======
-export const isHostedUrl = (value: unknown): value is string => {
-    if (typeof value !== "string") return false;
-    try {
-        const url = new URL(value);
-        return url.hostname.endsWith(HOSTING_DOMAIN_SUFFIX);
-    } catch {
-        return false;
-    }
-};
->>>>>>> eb6e672 (fix coderabbit suggested bug)
+    typeof value === "string" && value.includes(HOSTING_DOMAIN_SUFFIX);
 
 export const createHostingSlug = () =>
     `roomify-${Date.now().toString(36)}-${Math.random()
