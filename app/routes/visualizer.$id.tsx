@@ -1,4 +1,4 @@
-import { useNavigate, useOutletContext, useParams} from "react-router";
+import { useNavigate, useOutletContext, useParams, useLocation} from "react-router";
 import {useEffect, useRef, useState} from "react";
 import {generate3DView} from "../../lib/ai.action";
 import {Box, Check, Download, RefreshCcw, Share2, X} from "lucide-react";
@@ -9,6 +9,7 @@ import {ReactCompareSlider, ReactCompareSliderImage} from "react-compare-slider"
 const VisualizerId = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const location = useLocation();
     const { userId } = useOutletContext<AuthContext>()
 
     const hasInitialGenerated = useRef(false);
@@ -102,14 +103,30 @@ const VisualizerId = () => {
                 return;
             }
 
-            setIsProjectLoading(true);
+            const state = location.state as { initialImage?: string, initialRender?: string | null, name?: string } | null;
+
+            if (state?.initialImage) {
+                setProject({
+                    id,
+                    name: state.name || '',
+                    sourceImage: state.initialImage,
+                    renderedImage: state.initialRender || undefined,
+                    timestamp: Date.now(),
+                } as DesignItem);
+                setCurrentImage(state.initialRender || null);
+                setIsProjectLoading(false);
+            } else {
+                setIsProjectLoading(true);
+            }
 
             const fetchedProject = await getProjectById({ id });
 
             if (!isMounted) return;
 
-            setProject(fetchedProject);
-            setCurrentImage(fetchedProject?.renderedImage || null);
+            if (fetchedProject) {
+                setProject(fetchedProject);
+                setCurrentImage(fetchedProject.renderedImage || null);
+            }
             setIsProjectLoading(false);
             hasInitialGenerated.current = false;
         };
@@ -119,7 +136,7 @@ const VisualizerId = () => {
         return () => {
             isMounted = false;
         };
-    }, [id]);
+    }, [id, location.state]);
 
     useEffect(() => {
         if (
@@ -157,7 +174,7 @@ const VisualizerId = () => {
                     <div className="panel-header">
                         <div className="panel-meta">
                             <p>Project</p>
-                            <h2>{project?.name || `Residence ${id}`}</h2>
+                            <h2>{project?.name || `Untitled Project`}</h2>
                             <p className="note">Created by You</p>
                         </div>
 
