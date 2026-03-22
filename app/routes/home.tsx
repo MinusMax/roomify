@@ -5,6 +5,8 @@ import Button from "../../components/ui/Button";
 import {Layers} from "lucide-react";
 import Upload from "../../components/Upload";
 import {useNavigate} from "react-router";
+import {useEffect, useState , useRef} from "react";
+import {createProject, getProjects} from "../../lib/puter.action";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -15,11 +17,54 @@ export function meta({}: Route.MetaArgs) {
 
 export default function Home() {
     const navigate = useNavigate()
+    const [projects, setProjects] = useState<DesignItem[]>([]);
+    const isCreatingProjectRef = useRef(false);
 
-    const handleUploadComplete = (base64Data: string) => {
-        const newId = crypto.randomUUID();
+    useEffect(() => {
+        const fetchProjects = async () => {
+            const data = await getProjects();
+            setProjects(data);
+        };
+        fetchProjects();
+    }, []);
 
-        navigate(`/visualizer/${newId}`, { state: { image: base64Data } });
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    const handleUploadComplete = async (base64Data: string) => {
+        try {
+            if (isCreatingProjectRef.current) return false;
+            isCreatingProjectRef.current = true;
+            const newId = crypto.randomUUID();
+            const name = `Residence ${newId}`;
+
+            const newItem = {
+                id: newId, name, sourceImage: base64Data, renderedImage: undefined,
+                timestamp: Date.now()
+            }
+
+            const saved = await createProject({item: newItem, visibility: 'private'});
+
+            if (!saved) {
+                console.error('Failed to create project');
+                return false;
+            }
+
+            setProjects((prev) => [saved, ...prev]);
+
+            navigate(`/visualizer/${saved.id}`, {
+                state: {
+                    initialImage: saved.sourceImage,
+                    initialRender: saved.renderedImage || null,
+                    name: saved.name
+                }
+            });
+            return true;
+        } finally {
+            isCreatingProjectRef.current = false;
+        }
     }
 
   return (
@@ -78,31 +123,34 @@ export default function Home() {
                   </div>
 
                   <div className="projects-grid">
-                      <div className="project-card group">
+                      {projects.map(({id , name , renderedImage , sourceImage , timestamp}) => (
+                          <div className="project-card group" key={id} onClick={() => navigate(`/visualizer/${id}`)}>
                           <div className="preview">
-                              <img src="https://roomify-mlhuk267-dfwu1i.puter.site/projects/1770803585402/rendered.png" alt="Project" />
+                          <img src={renderedImage || sourceImage} alt="Project" />
 
-                              <div className="badge">
-                                  <span>Community</span>
-                              </div>
+                          <div className="badge">
+                          <span>Community</span>
+                          </div>
                           </div>
 
                           <div className="card-body">
-                              <div>
-                                  <h3>Project Manhattan</h3>
+                          <div>
+                          <h3>{name}</h3>
 
-                                  <div className="meta">
-                                      <Clock size={12} />
-                                      <span>{new Date('01.01.2027').toLocaleDateString()}</span>
-                                      <span>By Max</span>
-                                  </div>
-                              </div>
-                              <div className="arrow">
-                                  <ArrowUpRight size={18} />
-                              </div>
-                          </div>
+                          <div className="meta">
+                          <Clock size={12} />
+                  <span>{mounted ? new Date(timestamp).toLocaleDateString() : ""}</span>
+                  <span>By Max</span>
+              </div>
+      </div>
+    <div className="arrow">
+        <ArrowUpRight size={18} />
+    </div>
+</div>
 
-                      </div>
+</div>
+                      ))}
+
                   </div>
 
               </div>
