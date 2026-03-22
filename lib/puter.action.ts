@@ -1,7 +1,7 @@
 import puter from "@heyputer/puter.js";
 import {getOrCreateHostngConfig, uploadImageToHosting} from "./puter.hosting";
 import {isHostedUrl} from "./utils";
-import {PUTER_WORKER_URL, IS_VALID_PUTER_WORKER_URL} from "./constants";
+import {PUTER_WORKER_URL} from "./constants";
 
 export const signIn = async () => await puter.auth.signIn();
 
@@ -16,6 +16,10 @@ export const getCurrentUser = async () => {
 }
 
 export const createProject = async ({ item, visibility = "private" }: CreateProjectParams): Promise<DesignItem | null | undefined> => {
+    if(!PUTER_WORKER_URL) {
+        console.warn('Missing VITE_PUTER_WORKER_URL; skip history fetch;');
+        return null;
+    }
     const projectId = item.id;
 
     const hosting = await getOrCreateHostngConfig();
@@ -55,27 +59,6 @@ export const createProject = async ({ item, visibility = "private" }: CreateProj
         renderedImage: resolvedRender,
     }
 
-    if (!IS_VALID_PUTER_WORKER_URL) {
-        try {
-            const indexKey = "roomify_projects_index";
-            const projectKey = `roomify_project_${payload.id}`;
-
-            // Save project data
-            await puter.kv.set(projectKey, payload);
-
-            // Update index
-            const index = (await puter.kv.get(indexKey)) as string[] || [];
-            if (!index.includes(payload.id)) {
-                await puter.kv.set(indexKey, [payload.id, ...index]);
-            }
-
-            return payload;
-        } catch (e) {
-            console.error("Failed to save project to Puter KV", e);
-            return null;
-        }
-    }
-
     try {
         const response = await puter.workers.exec(`${PUTER_WORKER_URL}/api/projects/save`, {
             method: 'POST',
@@ -100,22 +83,9 @@ export const createProject = async ({ item, visibility = "private" }: CreateProj
 }
 
 export const getProjects = async () => {
-    if (!IS_VALID_PUTER_WORKER_URL) {
-        try {
-            const indexKey = "roomify_projects_index";
-            const ids = (await puter.kv.get(indexKey)) as string[] || [];
-
-            const projects = await Promise.all(
-                ids.map(async (id) => {
-                    return (await puter.kv.get(`roomify_project_${id}`)) as DesignItem | null;
-                })
-            );
-
-            return projects.filter((p): p is DesignItem => p !== null);
-        } catch (e) {
-            console.error("Failed to get projects from Puter KV", e);
-            return [];
-        }
+    if(!PUTER_WORKER_URL) {
+        console.warn('Missing VITE_PUTER_WORKER_URL; skip history fetch;');
+        return []
     }
 
     try {
@@ -136,13 +106,9 @@ export const getProjects = async () => {
 }
 
 export const getProjectById = async ({ id }: { id: string }) => {
-    if (!IS_VALID_PUTER_WORKER_URL) {
-        try {
-            return (await puter.kv.get(`roomify_project_${id}`)) as DesignItem | null;
-        } catch (e) {
-            console.error("Failed to get project from Puter KV", e);
-            return null;
-        }
+    if (!PUTER_WORKER_URL) {
+        console.warn("Missing VITE_PUTER_WORKER_URL; skipping project fetch.");
+        return null;
     }
 
     console.log("Fetching project with ID:", id);

@@ -1,152 +1,251 @@
-import {useLocation, useNavigate, useParams} from "react-router";
-import {useEffect, useState, useRef} from "react";
+import { useNavigate, useOutletContext, useParams} from "react-router";
+import {useEffect, useRef, useState} from "react";
 import {generate3DView} from "../../lib/ai.action";
-import {Box, X, Download, Share2 , RefreshCcw} from "lucide-react";
+import {Box, Check, Download, RefreshCcw, Share2, X} from "lucide-react";
 import Button from "../../components/ui/Button";
 import {createProject, getProjectById} from "../../lib/puter.action";
+import {ReactCompareSlider, ReactCompareSliderImage} from "react-compare-slider";
 
 const VisualizerId = () => {
-    const navigate = useNavigate();
-    const location = useLocation();
     const { id } = useParams();
-    const {initialImage , name: initialName, initialRender} = location.state || {};
+    const navigate = useNavigate();
+    const { userId } = useOutletContext<AuthContext>()
 
     const hasInitialGenerated = useRef(false);
 
+    const [project, setProject] = useState<DesignItem | null>(null);
+    const [isProjectLoading, setIsProjectLoading] = useState(true);
+
     const [isProcessing, setIsProcessing] = useState(false);
-    const [currentImage, setCurrentImage] = useState<string | null>(initialRender || null);
-    const [projectName, setProjectName] = useState(initialName || 'Untitled Project');
-    const [sourceImage, setSourceImage] = useState<string | null>(initialImage || null);
+    const [currentImage, setCurrentImage] = useState<string | null>(null);
+
+    const [copied, setCopied] = useState(false);
 
     const handleBack = () => navigate('/');
-
-    useEffect(() => {
-        const loadProject = async () => {
-            if (!id) return;
-            if (initialImage) return; // Already have data from state
-
-            const project = await getProjectById({ id });
-            if (project) {
-                setProjectName(project.name || 'Untitled Project');
-                setSourceImage(project.sourceImage);
-                if (project.renderedImage) {
-                    setCurrentImage(project.renderedImage);
-                }
-            }
+    const handleShare = async () => {
+        const shareData = {
+            title: 'Roomify - AI Interior Design',
+            text: 'Check out this AI interior design visualization!',
+            url: window.location.href,
         };
-        loadProject();
-    }, [id, initialImage]);
 
-    const runGeneration = async () => {
-        const imgToUse = sourceImage || initialImage;
-        if(!imgToUse) return;
+        try {
+            if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+                await navigator.share(shareData);
+            } else {
+                await navigator.clipboard.writeText(window.location.href);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+            }
+        } catch (error) {
+            console.error('Error sharing:', error);
+            // Fallback to clipboard if sharing fails
+            try {
+                await navigator.clipboard.writeText(window.location.href);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+            } catch (clipboardError) {
+                console.error('Clipboard fallback failed:', clipboardError);
+            }
+        }
+    };
+    const handleExport = () => {
+        if (!currentImage) return;
+
+        const link = document.createElement('a');
+        link.href = currentImage;
+        link.download = `roomify-${id || 'design'}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    const runGeneration = async (item: DesignItem) => {
+        if(!id || !item.sourceImage) return;
 
         try {
             setIsProcessing(true);
-            const result = await generate3DView({ sourceImage: imgToUse });
+            const result = await generate3DView({ sourceImage: item.sourceImage });
 
             if(result.renderedImage) {
                 setCurrentImage(result.renderedImage);
 
-                // Update project with rendered image
-                if (id) {
-                    await createProject({
-                        item: {
-                            id,
-                            name: projectName,
-                            sourceImage: imgToUse,
-                            renderedImage: result.renderedImage,
-                            timestamp: Date.now()
-                        }
-                    });
+                const updatedItem = {
+                    ...item,
+                    renderedImage: result.renderedImage,
+                    renderedPath: result.renderedPath,
+                    timestamp: Date.now(),
+                    ownerId: item.ownerId ?? userId ?? null,
+                    isPublic: item.isPublic ?? false,
+                }
+
+                const saved = await createProject({ item: updatedItem, visibility: "private" })
+
+                if(saved) {
+                    setProject(saved);
+                    setCurrentImage(saved.renderedImage || result.renderedImage);
                 }
             }
         } catch (error) {
-            console.error('Failed to generate 3D view:', error);
+            console.error('Generation failed: ', error)
         } finally {
             setIsProcessing(false);
         }
     }
 
     useEffect(() => {
-        const imgToUse = sourceImage || initialImage;
-        if(!imgToUse || hasInitialGenerated.current) return;
+        let isMounted = true;
 
-        if(initialRender || currentImage) {
+        const loadProject = async () => {
+            if (!id) {
+                setIsProjectLoading(false);
+                return;
+            }
+
+            setIsProjectLoading(true);
+
+            const fetchedProject = await getProjectById({ id });
+
+            if (!isMounted) return;
+
+            setProject(fetchedProject);
+            setCurrentImage(fetchedProject?.renderedImage || null);
+            setIsProjectLoading(false);
+            hasInitialGenerated.current = false;
+        };
+
+        loadProject();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [id]);
+
+    useEffect(() => {
+        if (
+            isProjectLoading ||
+            hasInitialGenerated.current ||
+            !project?.sourceImage
+        )
+            return;
+
+        if (project.renderedImage) {
+            setCurrentImage(project.renderedImage);
             hasInitialGenerated.current = true;
             return;
         }
 
         hasInitialGenerated.current = true;
-        runGeneration();
-    }, [sourceImage, initialImage, initialRender]);
-
+        void runGeneration(project);
+    }, [project, isProjectLoading]);
 
     return (
-            <div className="visualizer">
-                <nav className="topbar">
-                    <div className="brand">
-                        <Box  className="logo" />
+        <div className="visualizer">
+            <nav className="topbar">
+                <div className="brand">
+                    <Box className="logo" />
 
-                        <span className="name">
-                            Roomify
-                        </span>
-                    </div>
-                    <Button variant="ghost" size="sm" onClick={handleBack} className="exit">
-                        <X className="icon" /> Exit Editor
-                    </Button>
-                </nav>
+                    <span className="name">Roomify</span>
+                </div>
+                <Button variant="ghost" size="sm" onClick={handleBack} className="exit">
+                    <X className="icon" /> Exit Editor
+                </Button>
+            </nav>
 
-                <section className="content">
-                    <div className="panel">
+            <section className="content">
+                <div className="panel">
                     <div className="panel-header">
                         <div className="panel-meta">
                             <p>Project</p>
-                            <h2>{projectName}</h2>
+                            <h2>{project?.name || `Residence ${id}`}</h2>
                             <p className="note">Created by You</p>
                         </div>
 
                         <div className="panel-actions">
                             <Button
                                 size="sm"
-                                onClick={() => {}}
+                                onClick={handleExport}
                                 className="export"
                                 disabled={!currentImage}
                             >
-                                <Download className="w-4 h-4 mr-2"/> Export
+                                <Download className="w-4 h-4 mr-2" /> Export
                             </Button>
-                            <Button size="sm" onClick={() => {}} className="share">
-                                <Share2 className="w-4 h-4 mr-2"/> Share
+                            <Button 
+                                size="sm" 
+                                onClick={handleShare} 
+                                className={`share ${copied ? 'bg-green-600 hover:bg-green-700 text-white' : ''}`}
+                            >
+                                {copied ? (
+                                    <>
+                                        <Check className="w-4 h-4 mr-2" />
+                                        Copied!
+                                    </>
+                                ) : (
+                                    <>
+                                        <Share2 className="w-4 h-4 mr-2" />
+                                        Share
+                                    </>
+                                )}
                             </Button>
                         </div>
                     </div>
 
-                        <div className={`render-area ${isProcessing ? 'is-processing' : ''}`} >
-                            {currentImage ? (
-                                <img src={currentImage} alt="AI Render" className="render-img" />
-                            ) : (
-                                <div className="render-placeholder">
-                                    {(sourceImage || initialImage) && (
-                                        <img src={sourceImage || initialImage} alt="Original" className="render-fallback" />
-                                    )}
-                                </div>
-                            )}
+                    <div className={`render-area ${isProcessing ? 'is-processing': ''}`}>
+                        {currentImage ? (
+                            <img src={currentImage} alt="AI Render" className="render-img" />
+                        ) : (
+                            <div className="render-placeholder">
+                                {project?.sourceImage && (
+                                    <img src={project?.sourceImage} alt="Original" className="render-fallback" />
+                                )}
+                            </div>
+                        )}
 
-                            {isProcessing && (
-                                <div className="render-overlay">
-                                    <div className="rendering-card">
-                                        <RefreshCcw className="spinner" />
-                                        <span className="title">Rendering ...</span>
-                                        <span className="subtitle">Generating your 3D visualization</span>
-                                    </div>
+                        {isProcessing && (
+                            <div className="render-overlay">
+                                <div className="rendering-card">
+                                    <RefreshCcw className="spinner" />
+                                    <span className="title">Rendering...</span>
+                                    <span className="subtitle">Generating your 3D visualization</span>
                                 </div>
-                            )}
-                        </div>
-
+                            </div>
+                        )}
                     </div>
-                </section>
-            </div>
+
+                </div>
+
+                <div className="panel compare">
+                    <div className="panel-header">
+                        <div className="panel-meta">
+                            <p>Comparison</p>
+                            <h3>Before and After</h3>
+                        </div>
+                        <div className="hint">Drag to compare</div>
+                    </div>
+
+                    <div className="compare-stage">
+                        {project?.sourceImage && currentImage ? (
+                                <ReactCompareSlider
+                                    defaultValue={50}
+                                    style={{ width: '100%', height: '100%' }}
+                                    itemOne={
+                                        <ReactCompareSliderImage src={project?.sourceImage} alt="before" style={{ objectFit: 'contain', width: '100%', height: '100%' }} />
+                                    }
+                                    itemTwo={
+                                        <ReactCompareSliderImage src={currentImage || project?.renderedImage || undefined} alt="after" style={{ objectFit: 'contain', width: '100%', height: '100%' }} />
+                                    }
+                                />
+                        ) : (
+                            <div className="compare-fallback">
+                                {project?.sourceImage && (
+                                    <img src={project.sourceImage} alt="Before" className="compare-img" />
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </section>
+        </div>
     )
 }
-
 export default VisualizerId
